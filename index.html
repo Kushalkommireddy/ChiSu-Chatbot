@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChiSu</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* --- CSS VARIABLES FOR THEMING --- */
+        :root {
+            /* Dark Mode (Default) */
+            --bg-color: #121212;
+            --text-color: #E0E0E0;
+            --card-bg: #1F1F1F;
+            --accent-color: #0077B6; /* Blue Accent */
+            --header-bg: #101030;
+            --model-bubble: #2D2D2D;
+            --user-bubble: #0077B6;
+            --shadow-color: rgba(0, 119, 182, 0.2);
+            --header-border: #333;
+            --input-bg: #1F1F1F;
+            --input-border: #333;
+            --toggle-bg: #374151; /* gray-700 */
+            --toggle-text: white;
+        }
+
+        /* Bright Mode Overrides */
+        .bright-mode {
+            --bg-color: #F7F7F7;
+            --text-color: #333333;
+            --card-bg: #FFFFFF;
+            --accent-color: #0077B6; 
+            --header-bg: #DDDDFF;
+            --model-bubble: #EAEAEA;
+            --user-bubble: #0077B6;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --header-border: #CCC;
+            --input-bg: #FFFFFF;
+            --input-border: #DDD;
+            --toggle-bg: #D1D5DB; /* gray-300 */
+            --toggle-text: #374151; /* gray-800 */
+        }
+        /* --- END THEME VARIABLES --- */
+
+
+        /* --- GLOBAL & DYNAMIC STYLES --- */
+        body {
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .chat-container {
+            background-color: var(--card-bg);
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--header-border);
+        }
+
+        /* Custom scrollbar */
+        #chat-window::-webkit-scrollbar { width: 8px; }
+        #chat-window::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 4px; }
+        #chat-window::-webkit-scrollbar-track { background: var(--card-bg); } 
+
+        .message-box {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .user-message {
+            background-color: var(--user-bubble); 
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 119, 182, 0.4);
+        }
+        
+        .model-message {
+            background-color: var(--model-bubble);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+            white-space: pre-wrap;
+        }
+
+        /* Typing Indicator dots */
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        .dot {
+            width: 8px; height: 8px; background-color: var(--accent-color); 
+            border-radius: 50%; display: inline-block; margin: 0 2px; animation: pulse-dot 1s infinite ease-in-out;
+        }
+
+        /* Responsive height fix for mobile */
+        @media (max-width: 640px) {
+            .h-\[85vh\] { height: 95vh; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 font-sans antialiased">
+
+    <div class="w-full max-w-lg rounded-2xl flex flex-col h-[85vh] overflow-hidden chat-container" id="chat-app-container">
+        <!-- Header -->
+        <header class="p-5 border-b shadow-lg flex justify-between items-center" id="chat-header">
+            <h1 class="text-3xl font-extrabold tracking-wider flex items-center">
+                <!-- Sports Icon -->
+                <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-3" fill="currentColor" viewBox="0 0 20 20" style="color: var(--accent-color);">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-7-8a7 7 0 1114 0 7 7 0 01-14 0zM7 9a1 1 0 000 2h6a1 1 0 100-2H7zM5 13a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 00-1 1v1a1 1 0 102 0V4a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg> -->
+                <i>ChiSu</i>
+            </h1>
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle" onclick="toggleTheme()" class="p-2 rounded-full transition duration-150 focus:outline-none">
+                <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <!-- Icon SVG path set dynamically by JavaScript -->
+                </svg>
+            </button>
+        </header>
+
+        <!-- Chat Window (Display Area) -->
+        <div id="chat-window" class="flex-grow p-4 overflow-y-auto space-y-4">
+            <!-- Initial Model Message -->
+            <div class="flex justify-start">
+                <div class="message-box model-message font-medium">
+                    Hello! I am <i>ChiSu</i>, a specialized chatbot focusing only on sports topics. Ask me about cricket, football, F1, or any other sport!
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="loading-indicator" class="px-4 pb-2 pt-1 hidden">
+            <div class="flex items-center space-x-1">
+                <span class="text-sm font-semibold" style="color: var(--accent-color);"><i>ChiSu</i> is typing</span>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t" id="input-area">
+            <div class="flex space-x-3">
+                <input type="text" id="user-input" placeholder="e.g., Which team won the UEFA Champions League 2024?" class="flex-grow p-3 border rounded-xl placeholder-gray-400 transition duration-150" style="background-color: var(--input-bg); color: var(--text-color); border-color: var(--input-border); focus:ring:var(--accent-color); focus:border:var(--accent-color);" onkeydown="if(event.key === 'Enter') sendMessage()">
+                <button id="send-button" onclick="sendMessage()" class="px-5 py-3 text-white font-bold rounded-xl hover:opacity-80 transition duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 shadow-lg" style="background-color: var(--accent-color); box-shadow: 0 4px 10px var(--shadow-color);">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Deployment Ready URL ---
+        // Calls the backend endpoint on the same domain (Vercel)
+        const BACKEND_URL = '/api/chat'; 
+        
+        // --- CHAT AI LOGIC ---
+        const SYSTEM_PROMPT = "You are a specialized, highly dedicated sports chatbot. You must only answer questions directly related to sports, athletes, teams, games, history, or rules. If a question is not about sports, you must politely decline and state, 'I am ChiSu, a specialized sports assistant and can only discuss topics related to sports. Please try asking me a sports question!' Do not deviate from this instruction.";
+
+        let chatHistory = [
+            { 
+                role: "user", 
+                parts: [{ text: SYSTEM_PROMPT }] 
+            }
+        ];
+
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        function renderMessage(text, role) {
+            const isUser = role === 'user';
+            const messageContainer = document.createElement('div');
+            messageContainer.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+            const messageBox = document.createElement('div');
+            messageBox.className = `message-box ${isUser ? 'user-message' : 'model-message'}`;
+            messageBox.innerHTML = text.replace(/\n/g, '<br>'); 
+            
+            messageContainer.appendChild(messageBox);
+            chatWindow.appendChild(messageContainer);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function toggleControls(isThinking) {
+            userInput.disabled = isThinking;
+            sendButton.disabled = isThinking;
+            loadingIndicator.classList.toggle('hidden', !isThinking);
+            if (!isThinking) {
+                userInput.value = '';
+                userInput.focus();
+            }
+        }
+
+        async function sendMessage() {
+            const userText = userInput.value.trim();
+            if (!userText) return;
+
+            toggleControls(true);
+            renderMessage(userText, 'user');
+            
+            const userContent = { role: "user", parts: [{ text: userText }] };
+            chatHistory.push(userContent);
+
+            const payload = { contents: chatHistory };
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Backend returned status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                const modelText = result.candidates?.[0]?.content?.parts?.[0]?.text || "An unexpected error occurred or the response was empty.";
+                
+                renderMessage(modelText, 'model');
+                const modelContent = { role: "model", parts: [{ text: modelText }] };
+                chatHistory.push(modelContent);
+
+            } catch (error) {
+                console.error("Chat Error:", error);
+                renderMessage(`Error: Could not process request. Details: ${error.message}`, 'model');
+            }
+            
+            toggleControls(false);
+        }
+
+        // --- THEME LOGIC (Updated for variables) ---
+        const THEME_KEY = 'chatTheme';
+        const themeIcon = document.getElementById('theme-icon');
+        const chatHeader = document.getElementById('chat-header');
+        const inputArea = document.getElementById('input-area');
+        
+        function setIcon(isDark) {
+            // Moon icon for dark mode, Sun icon for bright mode
+            themeIcon.innerHTML = isDark 
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />' // Moon
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />'; // Sun
+            
+            // Adjust static Tailwind classes based on theme
+            const toggleButton = document.getElementById('theme-toggle');
+            if (isDark) {
+                toggleButton.style.backgroundColor = 'var(--toggle-bg)';
+                toggleButton.style.color = 'var(--toggle-text)';
+                chatHeader.className = 'p-5 border-b border-gray-700 bg-blue-900 text-white shadow-lg flex justify-between items-center';
+                inputArea.className = 'p-4 border-t border-gray-700 bg-black';
+            } else {
+                toggleButton.style.backgroundColor = 'var(--toggle-bg)';
+                toggleButton.style.color = 'var(--toggle-text)';
+                chatHeader.className = 'p-5 border-b border-gray-300 bg-blue-100 text-gray-900 shadow-lg flex justify-between items-center';
+                inputArea.className = 'p-4 border-t border-gray-300 bg-gray-100';
+            }
+        }
+
+        function applyTheme(theme) {
+            const isDark = theme === 'dark';
+            document.body.classList.toggle('bright-mode', !isDark);
+            
+            // Re-run setIcon to update static classes and the icon
+            setIcon(isDark);
+        }
+
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'bright' : 'dark';
+            localStorage.setItem(THEME_KEY, newTheme);
+            applyTheme(newTheme);
+        }
+
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+            applyTheme(savedTheme);
+        }
+
+        window.onload = () => {
+            initializeTheme();
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            userInput.focus();
+        };
+
+    </script>
+</body>
+</html>

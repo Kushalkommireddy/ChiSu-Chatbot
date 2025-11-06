@@ -1,0 +1,10 @@
+node_modules/
+
+# Environment variables (DO NOT COMMIT YOUR KEY!)
+.env
+
+# Logs
+*.log
+
+# Add this line to your .gitignore file
+vertex-key.json

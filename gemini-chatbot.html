@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Conversational Chatbot</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar style */
+        #chat-window::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background-color: #A7F3D0;
+            border-radius: 4px;
+        }
+        #chat-window::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .message-box {
+            max-width: 85%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .user-message {
+            background-color: #3B82F6; /* Blue-600 */
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .model-message {
+            background-color: #F3F4F6; /* Gray-100 */
+            color: #1F2937; /* Gray-800 */
+            border-bottom-left-radius: 4px;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #6B7280;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: pulse-dot 1s infinite ease-in-out;
+        }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
+
+    <div class="w-full max-w-xl bg-white rounded-xl shadow-2xl flex flex-col h-[80vh]">
+        <!-- Header -->
+        <header class="p-4 border-b border-gray-200 bg-indigo-600 text-white rounded-t-xl">
+            <h1 class="text-xl font-bold">🤖 Gemini Chat Assistant</h1>
+            <p class="text-sm opacity-80">Asks me anything! Context is maintained.</p>
+        </header>
+
+        <!-- Chat Window (Display Area) -->
+        <div id="chat-window" class="flex-grow p-4 overflow-y-auto space-y-4">
+            <!-- Initial Model Message -->
+            <div class="flex justify-start">
+                <div class="message-box model-message">
+                    Hello! I'm your conversational AI powered by Gemini 2.5 Flash. I'm ready to chat. Try asking me "What is my favorite color?" I will tell you that I don't know, then you can tell me, and I will remember it in the next turn!
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="loading-indicator" class="px-4 pb-2 pt-1 hidden">
+            <div class="flex items-center space-x-1 text-gray-500">
+                <span class="text-sm">Typing</span>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-200">
+            <div class="flex space-x-2">
+                <input type="text" id="user-input" placeholder="Type your message here..." class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150" onkeydown="if(event.key === 'Enter') sendMessage()">
+                <button id="send-button" onclick="sendMessage()" class="px-5 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CRITICAL NOTE: In a real application, NEVER expose your API key in client-side code.
+        // The API call should be routed through a secure backend (serverless function, Node.js, etc.).
+        // We use an empty API key here as per the constraints for this environment.
+        const apiKey = ""; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        // This array stores the entire conversation history (alternating user/model)
+        // and is sent to the API on every turn to maintain context.
+        let chatHistory = [
+            // Initializing with the system instruction and the first model turn for context
+            // System instruction defines the bot's persona.
+            { 
+                role: "user", 
+                parts: [{ text: "You are a friendly and conversational AI assistant. You remember the context of our chat. Respond concisely and helpfully." }] 
+            },
+            {
+                role: "model",
+                parts: [{ text: "Hello! I'm your conversational AI powered by Gemini 2.5 Flash. I'm ready to chat. Try asking me 'What is my favorite color?' I will tell you that I don't know, then you can tell me, and I will remember it in the next turn!" }]
+            }
+        ];
+
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        
+        // --- UI Rendering Functions ---
+
+        /**
+         * Renders a message to the chat window.
+         * @param {string} text - The message text.
+         * @param {string} role - 'user' or 'model'.
+         */
+        function renderMessage(text, role) {
+            const isUser = role === 'user';
+            const messageContainer = document.createElement('div');
+            messageContainer.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+            const messageBox = document.createElement('div');
+            messageBox.className = `message-box ${isUser ? 'user-message' : 'model-message'}`;
+            messageBox.innerHTML = marked.parse(text); // Use marked for Markdown rendering
+            
+            messageContainer.appendChild(messageBox);
+            chatWindow.appendChild(messageContainer);
+            
+            // Scroll to the bottom
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        /**
+         * Clears the input and disables/enables controls.
+         * @param {boolean} isThinking - If the model is currently thinking.
+         */
+        function toggleControls(isThinking) {
+            userInput.disabled = isThinking;
+            sendButton.disabled = isThinking;
+            loadingIndicator.classList.toggle('hidden', !isThinking);
+            if (!isThinking) {
+                userInput.value = '';
+                userInput.focus();
+            }
+        }
+
+        // --- API & Core Logic ---
+
+        /**
+         * Exponential backoff for retrying API calls.
+         * @param {number} attempt - Current retry attempt number.
+         * @returns {Promise<void>}
+         */
+        async function wait(attempt) {
+            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+            return new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        /**
+         * Sends the current conversation history to the Gemini API.
+         */
+        async function sendMessage() {
+            const userText = userInput.value.trim();
+            if (!userText) return;
+
+            toggleControls(true);
+            
+            // 1. Add user message to UI and history
+            renderMessage(userText, 'user');
+            
+            const userContent = { role: "user", parts: [{ text: userText }] };
+            chatHistory.push(userContent);
+
+            const payload = {
+                contents: chatHistory,
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        // If it's a 429 (Too Many Requests) or 5xx (Server Error), try again
+                        if (response.status === 429 || response.status >= 500) {
+                            if (attempt < maxRetries - 1) {
+                                await wait(attempt);
+                                continue; 
+                            }
+                        }
+                        throw new Error(`API returned status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const modelText = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+                    
+                    // 2. Add model response to UI and history
+                    renderMessage(modelText, 'model');
+                    const modelContent = { role: "model", parts: [{ text: modelText }] };
+                    chatHistory.push(modelContent);
+
+                    // Break the loop on success
+                    break; 
+
+                } catch (error) {
+                    console.error("Fetch error or max retries reached:", error);
+                    renderMessage(`Error: Could not connect to the API. Check the console for details. (${error.message})`, 'model');
+                    break;
+                }
+            }
+            
+            toggleControls(false);
+        }
+
+        // --- Utility for Markdown (using a minimal inline parser) ---
+        // This is a minimal function to display Markdown bold and links. 
+        // A full library like 'marked' is typically used for robust MD rendering.
+        const marked = {
+            parse: (text) => {
+                let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
+                html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank" class="text-indigo-500 underline">$1</a>'); // Links
+                html = html.replace(/\n/g, '<br>'); // Newlines
+                return html;
+            }
+        };
+
+        // Initialize the UI by checking the first model message and scrolling
+        window.onload = () => {
+             // Scroll to the bottom on load to show initial message
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            userInput.focus();
+        };
+
+    </script>
+</body>
+</html>

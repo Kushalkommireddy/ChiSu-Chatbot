@@ -1,0 +1,23 @@
+{
+  "name": "gemini-sports-chatbot-backend",
+  "version": "1.0.0",
+  "description": "Secure Node.js proxy for the Gemini Sports Chatbot.",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "keywords": [
+    "gemini",
+    "ai",
+    "chatbot",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.6.7"
+  }
+}
